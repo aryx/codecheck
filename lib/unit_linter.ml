@@ -7,6 +7,9 @@ module E = Error_code
 (* Prelude *)
 (*****************************************************************************)
 
+(* ran from _build/default/tests/ hence the '..'s below *)
+let tests_path = "../../../tests"
+
 (*****************************************************************************)
 (* Unit tests *)
 (*****************************************************************************)
@@ -15,8 +18,7 @@ let unittest ~ast_of_file =
  "linter" >::: [
   "basic checkers" >:: (fun () ->
   let p path = 
-     Filename.concat "../../../"
-            (Filename.concat "tests/GENERIC/scheck" path )
+     Filename.concat tests_path (Filename.concat "GENERIC" path )
   in
 
   let test_files = [
