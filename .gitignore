@@ -1,0 +1,8 @@
+_build
+.merlin
+
+/sgrep.install
+/project.el
+/skip_list.txt
+/top.ml
+/check_generic.install
