@@ -15,7 +15,7 @@ let unittest ~ast_of_file =
  "linter" >::: [
   "basic checkers" >:: (fun () ->
   let p path = 
-     Filename.concat Config_pfff.path 
+     Filename.concat "../../../"
             (Filename.concat "tests/GENERIC/scheck" path )
   in
 

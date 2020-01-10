@@ -1,10 +1,8 @@
 (library
- (public_name sgrep)
+ (public_name check_generic)
  (wrapped false)
  (libraries
-   yaml
-   commons
-   pfff-config 
+   commons commons_ocollection
    pfff-h_program-lang
    pfff-lang_GENERIC pfff-lang_GENERIC-analyze
  )

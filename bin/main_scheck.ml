@@ -259,11 +259,14 @@ let entity_finder_of_db file =
   Database_php_build.build_entity_finder db
 *)
 
-let entity_finder_of_graph_file graph_file root =
+let entity_finder_of_graph_file _graph_file _root =
+  raise Todo
+(*
   let g = Graph_code.load graph_file in
   pr2 (spf "using %s for root" root);
   (* todo: the graph_code contains absolute path?? *)
   (Entity_php.entity_finder_of_graph_code g root, g)
+*)
 
 (*---------------------------------------------------------------------------*)
 (* C++ false positive checker *)
@@ -466,9 +469,9 @@ let main_action xs =
     (* less: use a VCS.find... that is more general ?
      * infer PHP_ROOT? or take a --php_root?
      *)
-    let an_arg = List.hd xs |> Common2.relative_to_absolute in
+    let _an_arg = List.hd xs |> Common2.relative_to_absolute in
     let root = 
-      try Git.find_root_from_absolute_path an_arg 
+      try (* Git.find_root_from_absolute_path an_arg  *) raise Todo
       with Not_found -> "/"
     in
     pr (spf "using %s for php_root" root);
