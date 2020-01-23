@@ -5,6 +5,9 @@ jobs:
       - image: returntocorp/sgrep-build:2.1
     steps:
       - checkout
+      - run: cd ~/opam-repository; git pull
+      - run: opam update
+      - run: opam install yaml
       - run: cd ~
       - run: git clone  https://github.com/returntocorp/pfff
       - run: eval $(opam env) && cd pfff && git checkout bb3d11515b435bf37bdd1863c2839ef8efde9d82 && ./configure && \
