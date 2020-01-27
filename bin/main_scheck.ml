@@ -405,7 +405,7 @@ let main_action xs =
       if !r2c 
       then 
         let errs = E.adjust_paths_relative_to_root root errs in
-        pr (R2c.string_of_errors "scheck" errs)
+        pr (R2c.string_of_errors errs)
       else errs |> List.iter (fun err -> pr (E.string_of_error err))
     end
 
