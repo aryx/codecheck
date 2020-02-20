@@ -180,11 +180,6 @@ let php_stdlib =
 
 (* old: main_scheck_heavy: let metapath = ref "/tmp/pfff_db" *)
 
-(* take care, putting this to true can lead to performance regression
- * actually, because of the bigger stress on the GC
- *)
-let cache_parse = ref false
-
 (*****************************************************************************)
 (* Wrappers *)
 (*****************************************************************************)
@@ -492,7 +487,6 @@ let main_action xs =
       | _ -> None, None
     in
   
-    Common.save_excursion Flag_parsing_php.caching_parsing !cache_parse (fun ()->
       files |> Console.progress ~show:!show_progress (fun k -> 
         List.iter (fun file ->
           k();
@@ -525,7 +519,7 @@ let main_action xs =
             | exn ->
               pr2 (spf "PB with %s, exn = %s" file (Common.exn_to_s exn));
               if !Common.debugger then raise exn
-        )));
+        ));
 
     if !rank then begin
       let errs = 
@@ -768,9 +762,6 @@ let options () =
     " process included files for heavy analysis";
     "-depth_limit", Arg.Int (fun i -> depth_limit := Some i), 
     " <int> limit the number of includes to process";
-    "-caching", Arg.Clear cache_parse, 
-    " cache parsed ASTs";
-
   ] @
   Error_code.options () @
   Common2.cmdline_flags_devel () @
