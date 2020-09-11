@@ -332,6 +332,14 @@ let false_positive_detector hidentifier g errors =
     | _ -> false
   )
 
+(*---------------------------------------------------------------------------*)
+(* OCaml .cmt file issues *)
+(*---------------------------------------------------------------------------*)
+let file_with_wrong_loc file = 
+  match Common2.dbe_of_filename_safe file with
+  | Common2.Left (_, _, ("mly" | "mll" | "dyp")) -> true
+  | _ -> false
+
 (*****************************************************************************)
 (* Main action *)
 (*****************************************************************************)
@@ -350,7 +358,7 @@ let main_action xs =
   let files = Find_source.files_of_dir_or_files ~lang xs in
 
   match lang with
-  | s when Lang.lang_of_string_opt s <> None ->
+  | s when Lang.lang_of_string_opt s <> None && !graph_code = None ->
 (*---------------------------------------------------------------------------*)
 (* AST generic checker *)
 (*---------------------------------------------------------------------------*)
@@ -408,7 +416,7 @@ let main_action xs =
 (* Graphcode-based checker *)
 (*---------------------------------------------------------------------------*)
 
-  | "ocaml" | "java" | "c" | "php" | "clang2"  ->
+  | "ocaml" | "ml" | "java2" | "c2" | "php2" | "clang2"  ->
     let graph_file, _root =
       match xs, !graph_code with
       | _,    Some file -> file, Filename.dirname file
@@ -447,7 +455,8 @@ let main_action xs =
     in
     errs |> List.iter (fun err ->
       (* less: confront annotation and error kind *)
-      if Error_code.annotation_at err.Error_code.loc <> None
+      if not (file_with_wrong_loc err.Error_code.loc.Parse_info.file) &&
+         Error_code.annotation_at err.Error_code.loc <> None
       then pr2_dbg (spf "%s (Skipping @)" (Error_code.string_of_error err))
       else pr2 (Error_code.string_of_error err)
     )
@@ -456,7 +465,7 @@ let main_action xs =
 (* PHP checker *)
 (*---------------------------------------------------------------------------*)
 
-  | "php2" ->
+  | "php3" ->
 
     Flag_parsing.show_parsing_error := false;
     Flag_parsing.verbose_lexing := false;
