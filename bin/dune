@@ -1,8 +1,7 @@
 (executables
  (names main_scheck)
  (libraries 
-    threads          ;; needed for json-wheel (Condition?)
-    json-wheel       ;; Json_io, Json_type
+    str unix
     ocamlgraph
 
     commons commons_core commons_ocollection
@@ -17,7 +16,7 @@
     pfff-lang_ml pfff-lang_ml-analyze
     pfff-lang_java pfff-lang_java-analyze
     pfff-lang_go pfff-lang_go-analyze
-    pfff-lang_php pfff-lang_php-analyze-foundation pfff-lang_php-analyze-checker
+    pfff-lang_php pfff-lang_php-analyze pfff-lang_php-checker
     pfff-lang_lisp
     
     check_generic

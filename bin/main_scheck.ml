@@ -11,7 +11,7 @@ open Common
 module Flag = Flag_parsing
 module E = Error_code
 module PI = Parse_info
-module J = Json_type
+module J = JSON
 
 (*****************************************************************************)
 (* Purpose *)
@@ -176,7 +176,7 @@ let heavy = ref false
 let depth_limit = ref (Some 5: int option)
 
 let php_stdlib = 
-  ref (Filename.concat Config_pfff.path "/data/php_stdlib")
+  ref (Filename.concat Config_pfff.path_pfff_home "/data/php_stdlib")
 
 (* old: main_scheck_heavy: let metapath = ref "/tmp/pfff_db" *)
 

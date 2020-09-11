@@ -15,8 +15,8 @@
  *)
 open Common
 
-open Ast_generic
-module V = Visitor_ast
+open AST_generic
+module V = Visitor_AST
 module E = Error_code
 module F = Controlflow
 module D = Dataflow
@@ -58,12 +58,12 @@ let is_ok_unused_varname s =
 
 let is_global idinfo =
   match !(idinfo.id_resolved) with
-  | Some (Global _) -> true
+  | Some (Global, _) -> true
   | _ -> false
 
 let is_local idinfo =
   match !(idinfo.id_resolved) with
-  | Some (Local _ | Param _) -> true
+  | Some ((Local|Param), _) -> true
   | _ -> false
 
 let (dead_assign_detection: F.flow -> Dataflow_liveness.mapping -> unit) =

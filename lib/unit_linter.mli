@@ -4,5 +4,5 @@
  * run via OUnit.run_test_tt 
  *)
 val unittest: 
-   ast_of_file: (Common.filename -> Ast_generic.program) ->
+   ast_of_file: (Common.filename -> AST_generic.program) ->
    OUnit.test
