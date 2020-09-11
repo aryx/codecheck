@@ -1,5 +1,5 @@
 (executables
- (names main_scheck)
+ (names Main)
  (libraries 
     str unix
     ocamlgraph
@@ -19,14 +19,14 @@
     pfff-lang_php pfff-lang_php-analyze pfff-lang_php-checker
     pfff-lang_lisp
     
-    check_generic
+    codecheck
  )
  ; for ocamldebug
  (modes byte)
 )
 
 (install
- (package check_generic)
+ (package codecheck)
  (section bin)
- (files (main_scheck.exe as check_generic))
+ (files (Main.exe as codecheck))
 )

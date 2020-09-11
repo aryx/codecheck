@@ -1,5 +1,5 @@
 (library
- (public_name check_generic)
+ (public_name codecheck)
  (wrapped false)
  (libraries
    commons commons_ocollection
