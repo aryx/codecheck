@@ -192,42 +192,6 @@ let php_stdlib =
 
 (* old: main_scheck_heavy: let metapath = ref "/tmp/pfff_db" *)
 
-(*****************************************************************************)
-(* Parse generic *)
-(*****************************************************************************)
-
-(* Put back in semgrep/.../parsing/pfff/?
- * We can't depend on semgrep/.../parsing/Parse_target.ml which
- * depends on too many semgrep libs.
- * coupling: in tests/test.ml and bin/Main.ml
-*)
-module Parse_generic = struct
-let parse_program _file =
-  failwith "TODO"
-end
-(*
-module FT = File_type
-
-let ast_generic_of_file file =
- let typ = File_type.file_type_of_file file in
- match typ with
- | FT.PL (FT.Web (FT.Js)) ->
-    let cst = Parse_js.parse_program file in
-    let ast = Ast_js_build.program cst in
-    Js_to_generic.program ast
- | FT.PL (FT.Python) ->
-    let ast = Parse_python.parse_program file in
-    Resolve_python.resolve ast;
-    Python_to_generic.program ast
- | _ -> failwith (spf "file type not supported for %s" file)
-
-(* copy paste of code in pfff/main_test.ml *)
-let dump_ast_generic file =
-  let ast = ast_generic_of_file file in
-  let v = Meta_ast.vof_any (Ast_generic.Pr ast) in
-  let s = Ocaml.string_of_v v in
-  pr2 s
-*)
 
 (*****************************************************************************)
 (* Helpers *)
@@ -245,67 +209,6 @@ let set_gc () =
 (*****************************************************************************)
 (* Language specific *)
 (*****************************************************************************)
-
-(*---------------------------------------------------------------------------*)
-(* PHP Entity finders *)
-(*---------------------------------------------------------------------------*)
-
-(* Build the database of information. Take the name of the file
- * we want to check and process all the files that are needed (included)
- * to check it, a la cpp.
- * 
- * Some checks needs to have a global view of the code, for instance
- * to know what are the sets of valid protected variable that can be used
- * in a child class.
- *)
-let build_mem_db _file =
-(*
-
-  (* todo: could infer PHPROOT at least ? just look at
-   * the include in the file and see where the files are.
-   *)
-  let env = 
-    Env_php.mk_env (Common2.dirname file)
-  in
-  let root = "/" in (* todo ? *)
-
-  let all_files = 
-    Include_require_php.recursive_included_files_of_file 
-      ~verbose:!verbose 
-      ~depth_limit:!depth_limit
-      env file
-  in
-  let builtin_files =
-    Lib_parsing_php.find_php_files_of_dir_or_files [!php_stdlib]
-  in
-  Common.save_excursion Flag_analyze_php.verbose_database !verbose (fun()->
-    Database_php_build.create_db
-      ~db_support:(Database_php.Mem)
-      ~phase:2 (* TODO ? *)
-      ~files:(Some (builtin_files ++ all_files))
-      ~verbose_stats:false
-      ~annotate_variables_program:None
-      (Database_php.prj_of_dir root) 
-  )
-*)
-  raise Todo
-
-let entity_finder_of_db file =
-  let _db = build_mem_db file in
-  raise Todo
-(*
-  Database_php_build.build_entity_finder db
-*)
-
-let entity_finder_of_graph_file _graph_file _root =
-  raise Todo
-(*
-  let g = Graph_code.load graph_file in
-  pr2 (spf "using %s for root" root);
-  (* todo: the graph_code contains absolute path?? *)
-  (Entity_php.entity_finder_of_graph_code g root, g)
-*)
-
 
 (*****************************************************************************)
 (* Main action *)
@@ -329,62 +232,15 @@ let main_action xs =
 (*---------------------------------------------------------------------------*)
 (* AST generic checker *)
 (*---------------------------------------------------------------------------*)
-
-      let find_entity = None in
-      
-      files |> Console.progress ~show:!show_progress (fun k -> 
-        List.iter (fun file ->
-          k();
-          Error_code.try_with_exn_to_error file (fun () ->
-            logger#info "processing: %s" file;
-            let ast = 
-              Common.save_excursion Flag.error_recovery false (fun () ->
-              Common.save_excursion Flag.exn_when_lexical_error true (fun () ->
-              Common.save_excursion Flag.show_parsing_error false (fun () ->
-                Parse_generic.parse_program file 
-             ))) in
-            Check_all_generic.check_file ~find_entity ast;
-          );
-          if !rank || !r2c
-          then ()
-          else begin 
-            let errs = 
-              !E.g_errors 
-              |> List.rev 
-              |> List.filter (fun x -> 
-                E.score_of_rank (E.rank_of_error x) >= !filter
-              ) 
-              |>  E.filter_maybe_parse_and_fatal_errors in
-            errs |> List.iter (fun err -> pr (E.string_of_error err));
-            E.g_errors := []
-          end
-        )
-    );
-
-    if !rank || !r2c then begin
-      let errs = 
-        if !rank
-        then 
-          !E.g_errors 
-          |> List.map (fun x -> x, E.rank_of_error x)
-          |> Common.sort_by_val_highfirst 
-          |> List.map fst
-          |> Common.take_safe 20 
-        else !E.g_errors |> E.filter_maybe_parse_and_fatal_errors
-      in
-      if !r2c 
-      then 
-        let errs = E.adjust_paths_relative_to_root root errs in
-        pr (errs |> List.map E.string_of_error |> String.concat " ");
-      else errs |> List.iter (fun err -> pr (E.string_of_error err))
-    end
+    Check_all_generic.check ~show_progress:!show_progress
+        ~rank:!rank ~filter:!filter ~r2c:!r2c root files
 
 (*---------------------------------------------------------------------------*)
 (* Graphcode-based checker *)
 (*---------------------------------------------------------------------------*)
   | "ocaml" | "ml" | "java2" | "c2" | "php2" | "clang2"  ->
      Check_graph_code.check 
-        ~graph_code:!graph_code ~rank:!rank ~filter:!filter lang xs
+        ~graph_code:!graph_code ~rank:!rank ~filter:!filter lang files
 
 (*---------------------------------------------------------------------------*)
 (* PHP checker *)
@@ -392,90 +248,6 @@ let main_action xs =
 
   | "php3" ->
       failwith "TODO: php checker"
-(*
-    Flag_parsing.show_parsing_error := false;
-    Flag_parsing.verbose_lexing := false;
-    (* Error_php.strict := !strict; *)
-    (* less: use a VCS.find... that is more general ?
-     * infer PHP_ROOT? or take a --php_root?
-     *)
-    let _an_arg = List.hd xs |> Common2.relative_to_absolute in
-    let root = 
-      try (* Git.find_root_from_absolute_path an_arg  *) raise Todo
-      with Not_found -> "/"
-    in
-    pr (spf "using %s for php_root" root);
-    let env = Env_php.mk_env root in
-
-    let (find_entity, graph_opt) =
-      match () with
-      | _ when !heavy ->
-        Some (entity_finder_of_db (List.hd files)), None
-      | _ when !graph_code <> None ->
-        let (e, g) = 
-          entity_finder_of_graph_file (Common2.some !graph_code) root in
-        Some e, Some g
-        (* old: main_scheck_heavy:
-         * Database_php.with_db ~metapath:!metapath (fun db ->
-         *  Database_php_build.build_entity_finder db
-         *) 
-      | _ -> None, None
-    in
-  
-      files |> Console.progress ~show:!show_progress (fun k -> 
-        List.iter (fun file ->
-          k();
-          try 
-            pr2_dbg (spf "processing: %s" file);
-            Check_all_php.check_file ~find_entity env file;
-            (match graph_opt with
-              | None -> ()
-              | Some graph ->
-                Check_classes_php.check_required_field graph file
-            );
-            let errs = 
-              !Error_php._errors 
-              |> List.rev 
-              |> List.filter (fun x -> 
-                Error_php.score_of_rank
-                  (Error_php.rank_of_error_kind x.Error_php.typ) >= 
-                  !filter
-              )
-            in
-            if not !rank 
-            then begin 
-              errs |> List.iter (fun err -> pr (Error_php.string_of_error err));
-              if !auto_fix then errs |> List.iter Auto_fix_php.try_auto_fix;
-              Error_php._errors := []
-            end
-          with 
-            | (Timeout | UnixExit _) as exn -> raise exn
-            (*  | (Unix.Unix_error(_, "waitpid", "")) as exn -> raise exn *)
-            | exn ->
-              pr2 (spf "PB with %s, exn = %s" file (Common.exn_to_s exn));
-              if !Common.debugger then raise exn
-        ));
-
-    if !rank then begin
-      let errs = 
-        !Error_php._errors 
-        |> List.rev
-        |> Error_php.rank_errors
-        |> Common.take_safe 20 
-      in
-      errs |> List.iter (fun err -> pr (Error_php.string_of_error err));
-      Error_php.show_10_most_recurring_unused_variable_names ();
-      pr2 (spf "total errors = %d" (List.length !Error_php._errors));
-      pr2 "";
-      pr2 "";
-    end;
-    
-    !layer_file |> Common.do_option (fun file ->
-      (*  a layer needs readable paths, hence the root *)
-      let root = Common2.common_prefix_of_files_or_dirs xs in
-      Layer_checker_php.gen_layer ~root ~output:file !Error_php._errors
-    );
-*)
 
   | _ -> failwith ("unsupported language: " ^ lang)
   
@@ -615,8 +387,10 @@ open OUnit
 
 let test () =
   let suite = "scheck" >:::[
+(* TODO
       Unit_linter.unittest ~ast_of_file:Parse_generic.parse_program;
       (* Unit_checker_php.unittest *)
+*)
   ]
   in
   OUnit.run_test_tt suite |> ignore;
