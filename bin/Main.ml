@@ -1,3 +1,6 @@
+(* TODO: there are lots of cleanup to do on this file. It should be split in
+ * many files
+ *)
 (*
  * The author disclaims copyright to this source code.  In place of
  * a legal notice, here is a blessing:
@@ -13,11 +16,18 @@ module E = Error_code
 module PI = Parse_info
 module J = JSON
 
+let logger = Logging.get_logger [__MODULE__]
+
 (*****************************************************************************)
 (* Purpose *)
 (*****************************************************************************)
-(* 
- * A lint-like checker. https://github.com/facebook/pfff/wiki/Scheck
+(* Codecheck, a code checker supporting many languages.
+ *)
+
+(*---------------------------------------------------------------------------*)
+(* Old scheck doc *)
+(*---------------------------------------------------------------------------*)
+(* A lint-like checker. https://github.com/facebook/pfff/wiki/Scheck
  * Right now there is support mainly for PHP, as well as for 
  * C, Java, and OCaml (via graph_code_checker.ml), and for Python
  * and Javascript (via the generic AST).
@@ -150,6 +160,8 @@ let verbose = ref false
 let show_progress = ref true
 let r2c = ref false
 
+let log_config_file = ref "log_config.json"
+
 (* action mode *)
 let action = ref ""
 
@@ -181,10 +193,41 @@ let php_stdlib =
 (* old: main_scheck_heavy: let metapath = ref "/tmp/pfff_db" *)
 
 (*****************************************************************************)
-(* Wrappers *)
+(* Parse generic *)
 (*****************************************************************************)
-let pr2_dbg s =
-  if !verbose then pr2 s
+
+(* Put back in semgrep/.../parsing/pfff/?
+ * We can't depend on semgrep/.../parsing/Parse_target.ml which
+ * depends on too many semgrep libs.
+ * coupling: in tests/test.ml and bin/Main.ml
+*)
+module Parse_generic = struct
+let parse_program _file =
+  failwith "TODO"
+end
+(*
+module FT = File_type
+
+let ast_generic_of_file file =
+ let typ = File_type.file_type_of_file file in
+ match typ with
+ | FT.PL (FT.Web (FT.Js)) ->
+    let cst = Parse_js.parse_program file in
+    let ast = Ast_js_build.program cst in
+    Js_to_generic.program ast
+ | FT.PL (FT.Python) ->
+    let ast = Parse_python.parse_program file in
+    Resolve_python.resolve ast;
+    Python_to_generic.program ast
+ | _ -> failwith (spf "file type not supported for %s" file)
+
+(* copy paste of code in pfff/main_test.ml *)
+let dump_ast_generic file =
+  let ast = ast_generic_of_file file in
+  let v = Meta_ast.vof_any (Ast_generic.Pr ast) in
+  let s = Ocaml.string_of_v v in
+  pr2 s
+*)
 
 (*****************************************************************************)
 (* Helpers *)
@@ -263,82 +306,6 @@ let entity_finder_of_graph_file _graph_file _root =
   (Entity_php.entity_finder_of_graph_code g root, g)
 *)
 
-(*---------------------------------------------------------------------------*)
-(* C++ false positive checker *)
-(*---------------------------------------------------------------------------*)
-
-(* mv types in a generic file in h_program-lang/? generalize this code
- * to use different lang, and so pass different tokenize and TIdent extractor.
- *)
-module T = Parser_cpp
-let build_identifier_index lang xs =
-  let _root, files = 
-    match xs with
-    | [root] -> 
-        root, Find_source.files_of_root ~lang root
-    | _ ->
-        let root = Common2.common_prefix_of_files_or_dirs xs in
-        let files = 
-          Find_source.files_of_dir_or_files ~lang xs in
-        root, files
-  in
-
-  (* we use the Hashtbl.find_all property for this h *)
-  let h = Hashtbl.create 101 in
-  (* we don't here *)
-  let hcnt = Hashtbl.create 101 in
-  Flag_parsing.verbose_lexing := false;
-  files |> List.iter (fun file ->
-    let toks = Parse_cpp.tokens file in
-       
-    toks |> List.iter (fun tok ->
-      match tok with
-      | T.TIdent (s, info) ->
-          if Hashtbl.mem hcnt s
-          then 
-            let cnt = Hashtbl.find hcnt s in
-            if cnt > 10 then ()
-            else begin
-              Hashtbl.replace hcnt s (cnt + 1);
-              Hashtbl.add h s info
-            end
-          else begin
-            Hashtbl.add hcnt s 1;
-            Hashtbl.add h s info
-          end
-      | _ -> ()
-  ));
-  hcnt, h
-
-
-(* todo: could have more than 2 clients and still be dead
- * if was recursive function
- *)
-let false_positive_detector hidentifier g errors =
-  errors |> Common.exclude (fun err ->
-    match err.Error_code.typ with
-    | Error_code.Deadcode ((s, Entity_code.Function) as n) ->
-        let short = Graph_code.shortname_of_node n in
-        let occurences = Hashtbl.find_all hidentifier short in
-        let expected_minimum =
-          if Graph_code.has_node (s, Entity_code.Prototype) g
-          then 2 
-          else 1
-        in
-        let fp = List.length occurences > expected_minimum in
-        if fp
-        then pr2_dbg (spf "%s (FP deadcode?)" (Error_code.string_of_error err));
-        fp
-    | _ -> false
-  )
-
-(*---------------------------------------------------------------------------*)
-(* OCaml .cmt file issues *)
-(*---------------------------------------------------------------------------*)
-let file_with_wrong_loc file = 
-  match Common2.dbe_of_filename_safe file with
-  | Common2.Left (_, _, ("mly" | "mll" | "dyp")) -> true
-  | _ -> false
 
 (*****************************************************************************)
 (* Main action *)
@@ -369,7 +336,7 @@ let main_action xs =
         List.iter (fun file ->
           k();
           Error_code.try_with_exn_to_error file (fun () ->
-            pr2_dbg (spf "processing: %s" file);
+            logger#info "processing: %s" file;
             let ast = 
               Common.save_excursion Flag.error_recovery false (fun () ->
               Common.save_excursion Flag.exn_when_lexical_error true (fun () ->
@@ -408,68 +375,27 @@ let main_action xs =
       if !r2c 
       then 
         let errs = E.adjust_paths_relative_to_root root errs in
-        pr (R2c.string_of_errors errs)
+        pr (errs |> List.map E.string_of_error |> String.concat " ");
       else errs |> List.iter (fun err -> pr (E.string_of_error err))
     end
 
 (*---------------------------------------------------------------------------*)
 (* Graphcode-based checker *)
 (*---------------------------------------------------------------------------*)
-
   | "ocaml" | "ml" | "java2" | "c2" | "php2" | "clang2"  ->
-    let graph_file, _root =
-      match xs, !graph_code with
-      | _,    Some file -> file, Filename.dirname file
-      | [dir], _ -> Filename.concat dir Graph_code.default_filename, dir
-      | x::xs, _ ->
-          let root = Common2.common_prefix_of_files_or_dirs (x::xs) in
-          Filename.concat root Graph_code.default_filename, root
-      | [], _ -> failwith (spf "%s checker needs a graph file" lang);
-    in
-    if not (Sys.file_exists graph_file)
-    then failwith (spf "%s checker needs a graph file" lang);
-
-    let g = Graph_code.load graph_file in
-    let errs = Graph_code_checker.check g in
-    (* todo: make this more lazy? it's pretty slow *)
-    let hidentifier =
-      if lang = "clang2" (* not for "c"! graph_code_c is robust enough :) *)
-      then build_identifier_index (if lang = "clang2" then "c++" else lang) xs |> snd
-      else Hashtbl.create 0
-    in
-
-    let errs = 
-      errs 
-      |> false_positive_detector hidentifier g
-      |> Error_code.adjust_errors
-      |> List.filter (fun err -> (Error_code.score_of_error err) >= !filter)
-    in
-    let errs = 
-      if !rank 
-      then
-        errs |> List.map (fun err -> err, Error_code.rank_of_error err)
-        |> Common.sort_by_val_highfirst
-        |> Common.take_safe 40
-        |> List.map fst
-      else errs
-    in
-    errs |> List.iter (fun err ->
-      (* less: confront annotation and error kind *)
-      if not (file_with_wrong_loc err.Error_code.loc.Parse_info.file) &&
-         Error_code.annotation_at err.Error_code.loc <> None
-      then pr2_dbg (spf "%s (Skipping @)" (Error_code.string_of_error err))
-      else pr2 (Error_code.string_of_error err)
-    )
+     Check_graph_code.check 
+        ~graph_code:!graph_code ~rank:!rank ~filter:!filter lang xs
 
 (*---------------------------------------------------------------------------*)
 (* PHP checker *)
 (*---------------------------------------------------------------------------*)
 
   | "php3" ->
-
+      failwith "TODO: php checker"
+(*
     Flag_parsing.show_parsing_error := false;
     Flag_parsing.verbose_lexing := false;
-    Error_php.strict := !strict;
+    (* Error_php.strict := !strict; *)
     (* less: use a VCS.find... that is more general ?
      * infer PHP_ROOT? or take a --php_root?
      *)
@@ -549,7 +475,7 @@ let main_action xs =
       let root = Common2.common_prefix_of_files_or_dirs xs in
       Layer_checker_php.gen_layer ~root ~output:file !Error_php._errors
     );
-
+*)
 
   | _ -> failwith ("unsupported language: " ^ lang)
   
@@ -598,7 +524,9 @@ let type_inference _file =
 *)
 
 (* Dataflow analysis *)
-let dflow file_or_dir =
+let dflow _file_or_dir =
+  failwith "TODO"
+(*
   let file_or_dir = Common.fullpath file_or_dir in
   let files = Lib_parsing_php.find_source_files_of_dir_or_files [file_or_dir] in
   let dflow_of_func_def def =
@@ -627,6 +555,7 @@ let dflow file_or_dir =
        | _ -> ())
      with _ -> pr2 (spf "fail: %s" file)
     )) files
+*)
 
 (*---------------------------------------------------------------------------*)
 (* Poor's man token-based Deadcode detector for C/C++/...  *)
@@ -652,7 +581,7 @@ let entities_of_ast ast =
 
 let test_index xs =
   let xs = List.map Common.fullpath xs in
-  let hcnt, h = build_identifier_index "c++" xs in
+  let hcnt, h = Check_graph_code.build_identifier_index "c++" xs in
 (*
   hcnt |> Common.hash_to_list |> Common.sort_by_val_lowfirst 
   |> Common.take_safe 50 |> List.iter pr2_gen
@@ -687,7 +616,7 @@ open OUnit
 let test () =
   let suite = "scheck" >:::[
       Unit_linter.unittest ~ast_of_file:Parse_generic.parse_program;
-      Unit_checker_php.unittest;
+      (* Unit_checker_php.unittest *)
   ]
   in
   OUnit.run_test_tt suite |> ignore;
@@ -713,7 +642,6 @@ let extra_actions () = [
       else ()
     );
   );
-
   "-test_index", " <dirs>",
   Common.mk_action_n_arg test_index;
 ]
@@ -724,8 +652,8 @@ let extra_actions () = [
 
 let all_actions () =
  extra_actions() @
- Test_parsing_generic.actions() @
- Test_analyze_generic.actions() @
+ (* Test_parsing_generic.actions() @ *)
+ (* Test_analyze_generic.actions() @ *)
  []
 
 let options () =
@@ -778,7 +706,7 @@ let options () =
   [
     "-verbose", Arg.Unit (fun () -> 
       verbose := true;
-      Flag_analyze_php.verbose_entity_finder := true;
+      (* Flag_analyze_php.verbose_entity_finder := true; *)
     ),
     " guess what";
     "-version",   Arg.Unit (fun () ->
@@ -797,6 +725,25 @@ let main () =
       (Common2.basename Sys.argv.(0))
       "https://github.com/facebook/pfff/wiki/Scheck"
   in
+
+  (*
+   let handler = Easy_logging.(Handlers.make (CliErr Debug))
+     (*
+     match config.log_to_file with
+     | None -> Easy_logging.(Handlers.make (CliErr Debug))
+     | Some file -> Easy_logging.(Handlers.make (File (file, Debug)))
+      *)
+   in
+   Logging.apply_to_all_loggers (fun logger -> logger#add_handler handler);
+   (* Logging.(set_global_level Info); *)
+*)
+                                                                           
+  if Sys.file_exists !log_config_file
+  then begin
+    Logging.load_config_file !log_config_file;
+    logger#info "loaded %s" !log_config_file;
+  end;
+
   (* does side effect on many global flags *)
   let args = Common.parse_options (options()) usage_msg Sys.argv in
 

@@ -19,7 +19,7 @@ open AST_generic
 module V = Visitor_AST
 module E = Error_code
 module F = Controlflow
-module D = Dataflow
+module D = Dataflow_core
 
 (*****************************************************************************)
 (* Prelude *)
@@ -36,8 +36,8 @@ module D = Dataflow
 
 (* less: could be in controlflow_build.ml (was there before) *)
 let (unreachable_statement_detection : F.flow -> unit) = fun flow ->
-  flow#nodes#iter (fun (k, node) ->
-    let pred = flow#predecessors k in
+  flow.CFG.graph#nodes#iter (fun (k, node) ->
+    let pred = flow.CFG.graph#predecessors k in
     if pred#null then
       (match node.F.n with
       | F.Enter -> ()
@@ -63,7 +63,7 @@ let is_global idinfo =
 
 let is_local idinfo =
   match !(idinfo.id_resolved) with
-  | Some ((Local|Param), _) -> true
+  | Some ((LocalVar|Parameter), _) -> true
   | _ -> false
 
 let (dead_assign_detection: F.flow -> Dataflow_liveness.mapping -> unit) =

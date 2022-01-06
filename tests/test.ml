@@ -12,14 +12,22 @@ module E = Error_code
 (*****************************************************************************)
 let verbose = ref false
 
-let dump_ast = ref false
-
 (* ran from _build/default/tests/ hence the '..'s below *)
 let _tests_path = "../../../tests"
 
 (*****************************************************************************)
 (* Helpers *)
 (*****************************************************************************)
+
+(* Put back in semgrep/.../parsing/pfff/?
+ * We can't depend on semgrep/.../parsing/Parse_target.ml which
+ * depends on too many semgrep libs.
+ * coupling: in tests/test.ml and bin/Main.ml
+*)
+module Parse_generic = struct
+let parse_program _file =
+  failwith "TODO"
+end
 
 (*****************************************************************************)
 (* Main action *)
@@ -61,28 +69,6 @@ let test regexp =
 (* Extra actions *)
 (*****************************************************************************)
 
-module FT = File_type
-
-let ast_generic_of_file file =
- let typ = File_type.file_type_of_file file in
- match typ with
- | FT.PL (FT.Web (FT.Js)) ->
-    let cst = Parse_js.parse_program file in
-    let ast = Ast_js_build.program cst in
-    Js_to_generic.program ast
- | FT.PL (FT.Python) ->
-    let ast = Parse_python.parse_program file in
-    Resolve_python.resolve ast;
-    Python_to_generic.program ast
- | _ -> failwith (spf "file type not supported for %s" file)
-
-(* copy paste of code in pfff/main_test.ml *)
-let dump_ast_generic file =
-  let ast = ast_generic_of_file file in
-  let v = Meta_ast.vof_any (Ast_generic.Pr ast) in
-  let s = Ocaml.string_of_v v in
-  pr2 s
-
 (*****************************************************************************)
 (* The options *)
 (*****************************************************************************)
@@ -90,8 +76,6 @@ let dump_ast_generic file =
 let options = [
   "-verbose", Arg.Set verbose,
   " verbose mode";
-  "-dump_ast", Arg.Set dump_ast,
-  " <file> dump the generic Abstract Syntax Tree of a file";
   ]
 
 (*****************************************************************************)
@@ -108,7 +92,6 @@ let main () =
 
   (match List.rev !args with
   | [] -> test "all"
-  | [file] when !dump_ast -> dump_ast_generic file
   | [x] -> test x
   | _::_::_ ->
     print_string "too many arguments\n";

@@ -96,5 +96,8 @@ let unittest ~ast_of_file =
   let actual_errors = !E.g_errors in
   if verbose 
   then actual_errors |> List.iter (fun e -> pr (E.string_of_error e));
-  E.compare_actual_to_expected actual_errors expected_error_lines
+     match E.compare_actual_to_expected actual_errors expected_error_lines with
+     | Ok _ -> ()
+     | Error (_n, msg) ->
+         assert_failure msg
   )]
