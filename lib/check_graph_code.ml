@@ -179,8 +179,22 @@ let entity_finder_of_graph_file _graph_file _root =
  *)
 let false_positive_detector hidentifier g errors =
   errors |> Common.exclude (fun err ->
-    match err.Error_code.typ with
-    | Error_code.Deadcode ((s, Entity_code.Function) as n) ->
+    let fp = 
+      match err.Error_code.typ with
+      (* TODO: very specific to Semgrep, ugly. A skip_list would
+       * be better but it does not seem to work
+       *)
+      | Error_code.Deadcode ((s, _)) when
+         s =~ "^.*\\._[^\\.]+$" ||
+         s =~ ".*\\.show_.*" ||
+         s =~ ".*Tree_sitter.*__CST.*" ||
+         s =~ ".*Tree_sitter.*__Boilerplate.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*/pfff/.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*_j.ml"
+         ->
+         true
+
+      | Error_code.Deadcode ((s, Entity_code.Function) as n) ->
         let short = Graph_code.shortname_of_node n in
         let occurences = Hashtbl.find_all hidentifier short in
         let expected_minimum =
@@ -188,11 +202,12 @@ let false_positive_detector hidentifier g errors =
           then 2 
           else 1
         in
-        let fp = List.length occurences > expected_minimum in
-        if fp
-        then logger#debug "%s (FP deadcode?)" (Error_code.string_of_error err);
-        fp
-    | _ -> false
+        List.length occurences > expected_minimum
+      | _ -> false
+     in
+     if fp
+     then logger#debug "%s (FP deadcode?)" (Error_code.string_of_error err);
+     fp
   )
 
 (*****************************************************************************)
@@ -302,5 +317,5 @@ let check ~graph_code ~rank ~filter lang xs =
     if not (file_with_wrong_loc err.Error_code.loc.Parse_info.file) &&
        Error_code.annotation_at err.Error_code.loc <> None
     then logger#debug "%s (Skipping @)" (Error_code.string_of_error err)
-    else pr2 (Error_code.string_of_error err)
+    else pr (Error_code.string_of_error err)
   )
