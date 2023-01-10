@@ -8,6 +8,9 @@ test:
 install:
 	dune install
 
+setup:
+	git submodule update --init --recursive
+
 dump:
 	./_build/default/tests/test.bc -dump_ast tests/lint/stupid.py
 

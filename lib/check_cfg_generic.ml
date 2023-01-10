@@ -13,7 +13,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file
  * license.txt for more details.
  *)
+
+(* TODO: Controlflow does not exist anymore in semgrep and pfff.
+   you need to pass first through IL to then get a CFG
+ *)
+
+(*
 open Common
+
 
 open AST_generic
 module V = Visitor_AST
@@ -160,11 +167,13 @@ let check_func_def fdef =
       | Some tok -> E.error tok (E.CFGError s)
       | None -> pr2 (spf "TODO: CFG error detected but no location: %s" s)
       )
+ *)
 
 (*****************************************************************************)
 (* Main entry point *)
 (*****************************************************************************)
 
+(*
 let check_program2 prog =
   let visitor = V.mk_visitor { V.default_visitor with
     (* also valid for methods *)
@@ -180,6 +189,10 @@ let check_program2 prog =
   }
   in
   visitor (Pr prog)
+ *)
 
-let check_program a = 
+let check_program _a =
+  failwith "TODO: check_cfg_generic.check"
+  (*
   Common.profile_code "Checker.cfg" (fun () -> check_program2 a)
+   *)

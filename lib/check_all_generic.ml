@@ -98,7 +98,7 @@ let check_file ?(verbose=true) ?(find_entity=None) ast =
   Check_micro_clones_php.check ast;
 *)
   (* work only when have a find_entity; requires a global view of the code *)
-  find_entity |> Common.do_option (fun _find_entity ->
+  find_entity |> Option.iter (fun _find_entity ->
 (*
     Check_functions_php.check_program find_entity ast;
     Check_classes_php.check_program   find_entity ast;

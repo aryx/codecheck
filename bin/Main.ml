@@ -228,7 +228,7 @@ let main_action xs =
   let files = Find_source.files_of_dir_or_files ~lang xs in
 
   match lang with
-  | s when Lang.lang_of_string_opt s <> None && !graph_code = None ->
+  | s when Lang.of_string_opt s <> None && !graph_code = None ->
 (*---------------------------------------------------------------------------*)
 (* AST generic checker *)
 (*---------------------------------------------------------------------------*)

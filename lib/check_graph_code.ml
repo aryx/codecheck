@@ -22,6 +22,8 @@ let logger = Logging.get_logger [__MODULE__]
 (* Generic checks using codegraph generated file (graph_code.marshall).
  *
  * This is mostly useful for global deadcode analysis for now.
+ *
+ * TODO: see also graph_code_checker.ml in pfff/graph_code/
  *)
 
 (*---------------------------------------------------------------------------*)
@@ -186,10 +188,17 @@ let false_positive_detector hidentifier g errors =
        *)
       | Error_code.Deadcode ((s, _)) when
          s =~ "^.*\\._[^\\.]+$" ||
-         s =~ ".*\\.show_.*" ||
+         s =~ ".*\\.show.*" ||
+         s =~ ".*\\.equal.*" ||
+         s =~ ".*\\.compare.*" ||
+         s =~ ".*\\.hash.*" ||
          s =~ ".*Tree_sitter.*__CST.*" ||
          s =~ ".*Tree_sitter.*__Boilerplate.*" ||
          err.Error_code.loc.Parse_info.file =~ ".*/pfff/.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*/spacegrep/.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*/tree-sitter-lang/.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*/ocaml-tree-sitter-core/.*" ||
+         err.Error_code.loc.Parse_info.file =~ ".*/parsing/tree_sitter/.*" ||
          err.Error_code.loc.Parse_info.file =~ ".*_j.ml"
          ->
          true
